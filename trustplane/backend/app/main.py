@@ -39,7 +39,15 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info(f"🚀 Starting TrustPlane v{settings.VERSION}")
     logger.info(f"Environment: {'DEBUG' if settings.DEBUG else 'PRODUCTION'}")
+    
+    # Initialize event handlers
+    logger.info("📡 Registering event handlers...")
+    from app.services.event_dispatcher import setup_default_handlers
+    setup_default_handlers()
+    logger.info("✅ Event handlers registered")
+    
     yield
+    
     # Shutdown
     logger.info("👋 Shutting down TrustPlane")
 

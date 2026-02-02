@@ -8,6 +8,7 @@ from app.api.v1.endpoints import (
     organizations,
     workflows,
     sla,
+    sla_monitoring,
     events,
     audit,
     agents,
@@ -42,6 +43,13 @@ api_router.include_router(
     sla.router,
     prefix="/sla",
     tags=["SLA"]
+)
+
+# SLA Monitoring
+api_router.include_router(
+    sla_monitoring.router,
+    prefix="/sla/monitoring",
+    tags=["SLA Monitoring"]
 )
 
 # Event Store

@@ -178,6 +178,9 @@ class EventStore:
                 f"type={event.event_type.value} version={version}"
             )
             
+            # Dispatch event to handlers (async, fire-and-forget)
+            await self._dispatch_event(created_event)
+            
             return AppendResult(success=True, event=created_event)
             
         except IntegrityError:
@@ -575,6 +578,35 @@ class EventStore:
         """Get the latest version number in a stream"""
         latest = await self._get_latest_event(org_id, stream_id)
         return latest.version if latest else 0
+    
+    # =========================================================
+    # EVENT DISPATCHING
+    # =========================================================
+    
+    async def _dispatch_event(self, event: Event) -> None:
+        """
+        Dispatch event to registered handlers.
+        
+        This enables event-driven choreography between domains
+        (e.g., workflow events trigger SLA actions).
+        
+        Dispatching is fire-and-forget to not slow down writes.
+        Handler failures are logged but don't affect the append.
+        """
+        try:
+            # Import here to avoid circular imports
+            from app.services.event_dispatcher import event_dispatcher
+            
+            result = await event_dispatcher.dispatch(event)
+            
+            if not result.success:
+                logger.warning(
+                    f"Event dispatch had failures: {result.handlers_failed} failed "
+                    f"of {result.handlers_called} handlers for event {event.id}"
+                )
+        except Exception as e:
+            # Log but don't raise - event is already persisted
+            logger.error(f"Event dispatch failed: {e}", extra={"event_id": str(event.id)})
 
 
 # Singleton instance
