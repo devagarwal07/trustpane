@@ -7,6 +7,8 @@ This package contains the core business logic services:
 - WorkflowService: Workflow state management (event-sourced)
 - SLAService: SLA tracking and enforcement
 - AuditService: Audit log management
+- AgentWorkflowIntegration: AI agent integration with workflows
+- AgentEventHandler: Event-driven agent triggering
 """
 from app.services.event_store import event_store, EventStore, AppendResult
 from app.services.event_projector import (
@@ -23,6 +25,18 @@ from app.services.workflow_service import (
     WorkflowType,
     WorkflowStateMachine,
     WorkflowSnapshot,
+)
+from app.services.agent_workflow_integration import (
+    AgentWorkflowIntegration,
+    AgentWorkflowContext,
+    AgentTriggerPoint,
+    create_agent_workflow_integration,
+    get_agent_workflow_integration,
+)
+from app.services.agent_event_handler import (
+    AgentEventHandler,
+    get_agent_event_handler,
+    register_agent_handlers,
 )
 
 __all__ = [
@@ -43,4 +57,14 @@ __all__ = [
     "WorkflowType",
     "WorkflowStateMachine",
     "WorkflowSnapshot",
+    # Agent-Workflow Integration
+    "AgentWorkflowIntegration",
+    "AgentWorkflowContext",
+    "AgentTriggerPoint",
+    "create_agent_workflow_integration",
+    "get_agent_workflow_integration",
+    # Agent Event Handler
+    "AgentEventHandler",
+    "get_agent_event_handler",
+    "register_agent_handlers",
 ]

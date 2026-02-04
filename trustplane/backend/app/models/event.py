@@ -17,6 +17,8 @@ class EventType(str, Enum):
     WORKFLOW_TRANSITIONED = "workflow.transitioned"
     WORKFLOW_COMPLETED = "workflow.completed"
     WORKFLOW_FAILED = "workflow.failed"
+    WORKFLOW_ASSIGNED = "workflow.assigned"
+    WORKFLOW_ESCALATED = "workflow.escalated"
     
     # SLA events
     SLA_STARTED = "sla.started"
@@ -25,10 +27,13 @@ class EventType(str, Enum):
     SLA_SOFT_BREACH = "sla.soft_breach"
     SLA_HARD_BREACH = "sla.hard_breach"
     SLA_MET = "sla.met"
+    SLA_WARNING = "sla.warning"
     
     # Agent events
     AGENT_DECISION = "agent.decision"
     AGENT_ESCALATION = "agent.escalation"
+    AGENT_DECISION_REVIEWED = "agent.decision_reviewed"
+    AGENT_RECOMMENDATION_APPLIED = "agent.recommendation_applied"
     
     # Policy events
     POLICY_EVALUATED = "policy.evaluated"

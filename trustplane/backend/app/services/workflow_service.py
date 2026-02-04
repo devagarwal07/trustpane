@@ -443,6 +443,75 @@ class WorkflowService:
             reason=reason
         )
     
+    async def assign(
+        self,
+        org_id: UUID,
+        workflow_id: UUID,
+        assignee_id: UUID,
+        actor_id: UUID,
+        reason: Optional[str] = None
+    ) -> WorkflowSnapshot:
+        """Assign a workflow to a user."""
+        # Verify workflow exists
+        current = await self.get_workflow(org_id, workflow_id)
+        if not current:
+            raise ValidationError(f"Workflow not found: {workflow_id}")
+        
+        # Create assignment event
+        event = EventCreate(
+            stream_id=workflow_id,
+            event_type=EventType.WORKFLOW_ASSIGNED,
+            data={
+                "assignee_id": str(assignee_id),
+                "previous_assignee_id": str(current.assignee_id) if current.assignee_id else None,
+                "reason": reason,
+            },
+            metadata={},
+            actor_id=actor_id,
+            actor_type="user",
+        )
+        
+        result = await self._event_store.append(org_id, event, actor_id)
+        
+        if not result.success:
+            raise ValidationError(f"Failed to assign workflow: {result.error}")
+        
+        logger.info(f"Workflow {workflow_id} assigned to {assignee_id}")
+        
+        return await self.get_workflow(org_id, workflow_id)
+    
+    async def find_workflows(
+        self,
+        org_id: UUID,
+        workflow_type: Optional[WorkflowType] = None,
+        states: Optional[List[str]] = None,
+        limit: int = 10,
+        exclude_id: Optional[UUID] = None,
+    ) -> List[WorkflowSnapshot]:
+        """Find workflows matching criteria (for similarity matching)."""
+        all_workflows = await self.list_workflows(
+            org_id=org_id,
+            workflow_type=workflow_type,
+            limit=limit * 2,  # Fetch more to filter
+        )
+        
+        result = []
+        for w in all_workflows:
+            # Skip excluded ID
+            if exclude_id and w.id == exclude_id:
+                continue
+            
+            # Filter by states
+            if states and w.current_state.value not in states:
+                continue
+            
+            result.append(w)
+            
+            if len(result) >= limit:
+                break
+        
+        return result
+    
     # =========================================================
     # STATE RECONSTRUCTION (via Event Replay)
     # =========================================================
@@ -581,6 +650,21 @@ class WorkflowService:
                 "at": str(snapshot.updated_at),
                 "reason": snapshot.failure_reason,
             })
+        
+        elif event.event_type == EventType.WORKFLOW_ASSIGNED:
+            assignee_id = event.data.get("assignee_id")
+            if assignee_id:
+                snapshot.assignee_id = UUID(assignee_id)
+        
+        elif event.event_type == EventType.WORKFLOW_ESCALATED:
+            # Record escalation in config
+            escalations = snapshot.config.get("escalations", [])
+            escalations.append({
+                "at": str(snapshot.updated_at),
+                "reason": event.data.get("reason"),
+                "level": event.data.get("escalation_level"),
+            })
+            snapshot.config["escalations"] = escalations
         
         return snapshot
     
