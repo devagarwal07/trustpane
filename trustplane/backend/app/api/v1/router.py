@@ -13,6 +13,7 @@ from app.api.v1.endpoints import (
     audit,
     agents,
     agent_workflows,
+    notifications,
     policies,
 )
 
@@ -79,6 +80,13 @@ api_router.include_router(
     agent_workflows.router,
     prefix="/agent-workflows",
     tags=["Agent-Workflow Integration"]
+)
+
+# Notifications
+api_router.include_router(
+    notifications.router,
+    prefix="/notifications",
+    tags=["Notifications"]
 )
 
 # Policies

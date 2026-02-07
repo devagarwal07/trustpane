@@ -39,6 +39,14 @@ class Settings(BaseSettings):
     # SLA Engine
     SLA_CHECK_INTERVAL_SECONDS: int = 60
     SLA_PREDICTION_HORIZON_HOURS: int = 24
+
+    # Notifications
+    NOTIFICATION_IN_APP_ENABLED: bool = True
+    NOTIFICATION_EMAIL_ENABLED: bool = False
+    NOTIFICATION_SMS_ENABLED: bool = False
+    NOTIFICATION_WEBHOOK_ENABLED: bool = False
+    NOTIFICATION_SENDER_EMAIL: str = "no-reply@trustplane.local"
+    NOTIFICATION_WEBHOOK_URL: str = ""
     
     class Config:
         env_file = ".env"

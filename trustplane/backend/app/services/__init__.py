@@ -38,6 +38,16 @@ from app.services.agent_event_handler import (
     get_agent_event_handler,
     register_agent_handlers,
 )
+from app.services.notification_service import (
+    NotificationService,
+    create_notification_service,
+    get_notification_service,
+)
+from app.services.notification_event_handler import (
+    NotificationEventHandler,
+    get_notification_event_handler,
+    register_notification_handlers,
+)
 
 __all__ = [
     # Event Store
@@ -67,4 +77,12 @@ __all__ = [
     "AgentEventHandler",
     "get_agent_event_handler",
     "register_agent_handlers",
+    # Notification Service
+    "NotificationService",
+    "create_notification_service",
+    "get_notification_service",
+    # Notification Event Handler
+    "NotificationEventHandler",
+    "get_notification_event_handler",
+    "register_notification_handlers",
 ]

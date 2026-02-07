@@ -263,6 +263,8 @@ def setup_default_handlers() -> None:
     Called during application startup.
     """
     from app.services.sla_workflow_coordinator import sla_workflow_coordinator
+    from app.services.agent_event_handler import register_agent_handlers
+    from app.services.notification_event_handler import register_notification_handlers
     
     # SLA Coordinator - handles workflow events
     event_dispatcher.register(
@@ -277,11 +279,10 @@ def setup_default_handlers() -> None:
         priority=100  # High priority
     )
     
-    # Note: Additional handlers would be registered here:
-    # - Audit logger
-    # - Notification service
-    # - Metrics collector
-    # - Search indexer
-    # etc.
+    # Agent handlers
+    register_agent_handlers(event_dispatcher)
+
+    # Notification handlers
+    register_notification_handlers(event_dispatcher)
     
     logger.info("Default event handlers registered")
