@@ -48,6 +48,11 @@ from app.services.notification_event_handler import (
     get_notification_event_handler,
     register_notification_handlers,
 )
+from app.services.dashboard_service import (
+    DashboardService,
+    create_dashboard_service,
+    get_dashboard_service,
+)
 
 __all__ = [
     # Event Store
@@ -85,4 +90,8 @@ __all__ = [
     "NotificationEventHandler",
     "get_notification_event_handler",
     "register_notification_handlers",
+    # Dashboard Service
+    "DashboardService",
+    "create_dashboard_service",
+    "get_dashboard_service",
 ]

@@ -15,6 +15,7 @@ from app.api.v1.endpoints import (
     agent_workflows,
     notifications,
     policies,
+    dashboard,
 )
 
 api_router = APIRouter()
@@ -93,5 +94,12 @@ api_router.include_router(
 api_router.include_router(
     policies.router,
     prefix="/policies",
-    tags=["Policies"]
+ 
+
+# Dashboard
+api_router.include_router(
+    dashboard.router,
+    prefix="/dashboard",
+    tags=["Dashboard"]
+)   tags=["Policies"]
 )
