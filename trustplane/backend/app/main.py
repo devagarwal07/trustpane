@@ -16,6 +16,12 @@ from app.core.exceptions import (
     TenantIsolationError,
 )
 from app.middleware.auth import AuthenticationMiddleware, TenantIsolationMiddleware
+from app.middleware.rate_limit import RateLimitMiddleware
+from app.middleware.security import (
+    SecurityHeadersMiddleware,
+    CORSSecurityMiddleware,
+    RequestSizeLimitMiddleware,
+)
 from app.middleware.exception_handlers import (
     trustplane_exception_handler,
     authentication_error_handler,
@@ -40,6 +46,13 @@ async def lifespan(app: FastAPI):
     logger.info(f"🚀 Starting TrustPlane v{settings.VERSION}")
     logger.info(f"Environment: {'DEBUG' if settings.DEBUG else 'PRODUCTION'}")
     
+    # Configure rate limiting
+    logger.info("⏱️ Configuring rate limits...")
+    from app.core.rate_limiting import configure_default_rate_limits, rate_limiter
+    configure_default_rate_limits()
+    await rate_limiter.start_cleanup_task()
+    logger.info("✅ Rate limiting configured")
+    
     # Initialize event handlers
     logger.info("📡 Registering event handlers...")
     from app.services.event_dispatcher import setup_default_handlers
@@ -50,6 +63,7 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     logger.info("👋 Shutting down TrustPlane")
+    rate_limiter.stop_cleanup_task()
 
 
 app = FastAPI(
@@ -78,15 +92,22 @@ app.add_exception_handler(Exception, unhandled_exception_handler)
 # Order matters - first added = outermost (runs first on request, last on response)
 # =====================================================
 
-# CORS - must be first
+# Security headers - outermost layer
+app.add_middleware(SecurityHeadersMiddleware)
+
+# Request size limit - prevent DoS
+app.add_middleware(RequestSizeLimitMiddleware, max_size=10 * 1024 * 1024)  # 10MB
+
+# CORS with security checks
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
+    CORSSecurityMiddleware,
+    allowed_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["x-request-id"],  # Expose request ID to frontend
+    max_age=600
 )
+
+# Rate limiting - throttle before authentication
+app.add_middleware(RateLimitMiddleware)
 
 # Authentication middleware - handles request ID and cleanup
 app.add_middleware(AuthenticationMiddleware)
