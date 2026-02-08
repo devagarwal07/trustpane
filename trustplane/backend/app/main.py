@@ -69,11 +69,104 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    description="Event-sourced SLA enforcement platform with AI agents",
+    description="""
+## TrustPlane - Production SaaS Platform
+
+Event-sourced, multi-tenant B2B SaaS platform for SLA management and enforcement with AI-powered agents.
+
+### Key Features
+
+- 🔐 **Enterprise Authentication** - JWT-based with Supabase integration
+- 📊 **SLA Management** - Create, monitor, and enforce service level agreements
+- 🤖 **AI Agents** - Automated task execution and ticket management
+- 📈 **Real-time Analytics** - Comprehensive metrics and dashboards
+- 🔔 **Multi-channel Notifications** - Email, Slack, webhooks
+- 🌐 **WebSocket Support** - Live updates and real-time events
+- 🔒 **Security Hardened** - Rate limiting, security headers, CORS
+- 🚀 **Production Ready** - Error handling, monitoring, resilience patterns
+
+### Architecture
+
+- **Event Sourcing** - Append-only ledger with hash chaining for audit trail
+- **Multi-tenancy** - Complete data isolation with RLS policies
+- **Horizontal Scaling** - Stateless design with distributed rate limiting
+- **Resilience** - Retry logic, circuit breakers, graceful degradation
+
+### Support
+
+- **Documentation**: https://docs.trustplane.com
+- **Status**: https://status.trustplane.com
+- **Support**: support@trustplane.com
+    """,
     openapi_url=f"{settings.API_V1_PREFIX}/openapi.json",
-    docs_url="/docs" if settings.DEBUG else None,  # Disable docs in production
+    docs_url="/docs" if settings.DEBUG else None,
     redoc_url="/redoc" if settings.DEBUG else None,
     lifespan=lifespan,
+    contact={
+        "name": "TrustPlane Support",
+        "url": "https://trustplane.com/support",
+        "email": "support@trustplane.com",
+    },
+    license_info={
+        "name": "Commercial License",
+        "url": "https://trustplane.com/license",
+    },
+    servers=[
+        {
+            "url": "https://api.trustplane.com",
+            "description": "Production server"
+        },
+        {
+            "url": "https://staging-api.trustplane.com",
+            "description": "Staging server"
+        },
+        {
+            "url": "http://localhost:8000",
+            "description": "Development server"
+        }
+    ],
+    openapi_tags=[
+        {
+            "name": "Authentication",
+            "description": "JWT authentication and user management"
+        },
+        {
+            "name": "SLAs",
+            "description": "Service Level Agreement management"
+        },
+        {
+            "name": "Workflows",
+            "description": "Workflow state machine and execution"
+        },
+        {
+            "name": "Policies",
+            "description": "Policy engine and rule evaluation"
+        },
+        {
+            "name": "Tickets",
+            "description": "Support ticket lifecycle management"
+        },
+        {
+            "name": "Agents",
+            "description": "AI agent orchestration and execution"
+        },
+        {
+            "name": "Analytics",
+            "description": "Metrics, dashboards, and reporting"
+        },
+        {
+            "name": "Notifications",
+            "description": "Multi-channel notification system"
+        },
+        {
+            "name": "Events",
+            "description": "Event sourcing and audit trail"
+        },
+        {
+            "name": "Admin",
+            "description": "Administrative operations"
+        }
+    ]
 )
 
 # =====================================================
