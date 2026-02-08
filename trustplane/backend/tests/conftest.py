@@ -7,6 +7,9 @@ from uuid import uuid4
 
 from app.main import app
 
+# Import all fixtures from fixtures.py
+from tests.fixtures import *
+
 
 @pytest.fixture
 def client():
