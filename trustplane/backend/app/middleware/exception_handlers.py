@@ -1,5 +1,7 @@
 """
 Global exception handlers for production-safe error responses
+
+Enhanced with error tracking, retry hints, and comprehensive logging.
 """
 from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
@@ -7,6 +9,7 @@ from fastapi.exceptions import RequestValidationError
 import logging
 import traceback
 from datetime import datetime
+from typing import Optional
 
 from app.core.exceptions import (
     TrustPlaneException,
@@ -16,8 +19,10 @@ from app.core.exceptions import (
     ValidationError,
     EventStoreError,
     IntegrityError,
+    RateLimitExceededError,
 )
 from app.core.tenant import get_current_tenant
+from app.core.error_tracking import track_error, error_aggregator
 
 logger = logging.getLogger(__name__)
 
@@ -26,22 +31,47 @@ def create_error_response(
     status_code: int,
     code: str,
     message: str,
-    details: dict = None,
-    request_id: str = None
+    details: Optional[dict] = None,
+    request_id: Optional[str] = None,
+    error_id: Optional[str] = None,
+    retryable: bool = False,
+    retry_after: Optional[int] = None
 ) -> JSONResponse:
-    """Create a standardized error response"""
+    """Create a standardized error response with tracking"""
+    headers = {}
+    
+    # Add retry-after header if specified
+    if retry_after:
+        headers["Retry-After"] = str(retry_after)
+    
+    # Add request ID header
+    if request_id:
+        headers["X-Request-ID"] = request_id
+    
+    # Add error ID for tracking
+    if error_id:
+        headers["X-Error-ID"] = error_id
+    
+    response_body = {
+        "success": False,
+        "error": {
+            "code": code,
+            "message": message,
+            "details": details or {},
+            "retryable": retryable,
+        },
+        "timestamp": datetime.utcnow().isoformat(),
+        "request_id": request_id,
+    }
+    
+    # Include error ID in production for support
+    if error_id:
+        response_body["error"]["error_id"] = error_id
+    
     return JSONResponse(
         status_code=status_code,
-        content={
-            "success": False,
-            "error": {
-                "code": code,
-                "message": message,
-                "details": details or {},
-            },
-            "timestamp": datetime.utcnow().isoformat(),
-            "request_id": request_id,
-        }
+        content=response_body,
+        headers=headers
     )
 
 
@@ -49,40 +79,51 @@ async def trustplane_exception_handler(
     request: Request, 
     exc: TrustPlaneException
 ) -> JSONResponse:
-    """Handle TrustPlane custom exceptions"""
+    """Handle TrustPlane custom exceptions with tracking"""
     request_id = getattr(request.state, "request_id", None)
     tenant = get_current_tenant()
+    
+    # Track error
+    error_id = track_error(
+        exc,
+        context={
+            "request_path": str(request.url),
+            "request_method": request.method,
+            "org_id": str(tenant.org_id) if tenant else None,
+            "user_id": str(tenant.user_id) if tenant else None,
+        },
+        severity="error" if exc.status_code >= 500 else "warning"
+    )
+    
+    # Aggregate error stats
+    error_aggregator.record_error(exc.code)
     
     # Log with context
     logger.error(
         f"TrustPlane error: {exc.code} - {exc.message}",
         extra={
             "code": exc.code,
+            "category": exc.category,
             "details": exc.details,
             "request_id": request_id,
+            "error_id": error_id,
             "org_id": str(tenant.org_id) if tenant else None,
             "user_id": str(tenant.user_id) if tenant else None,
         }
     )
     
-    # Map exception types to status codes
-    status_map = {
-        AuthenticationError: 401,
-        AuthorizationError: 403,
-        TenantIsolationError: 403,
-        ValidationError: 400,
-        EventStoreError: 500,
-        IntegrityError: 500,
-    }
-    
-    status_code = status_map.get(type(exc), 500)
+    # Don't leak internal details in production for 5xx errors
+    details = exc.details if exc.status_code < 500 else {}
     
     return create_error_response(
-        status_code=status_code,
+        status_code=exc.status_code,
         code=exc.code,
         message=exc.message,
-        details=exc.details if status_code != 500 else {},
+        details=details,
         request_id=request_id,
+        error_id=error_id,
+        retryable=exc.retryable,
+        retry_after=exc.details.get("retry_after")
     )
 
 
@@ -93,7 +134,16 @@ async def authentication_error_handler(
     """Handle authentication errors - don't leak details"""
     request_id = getattr(request.state, "request_id", None)
     
-    logger.warning(f"Authentication failed: {exc.message}")
+    error_id = track_error(
+        exc,
+        context={"request_path": str(request.url)},
+        severity="warning"
+    )
+    
+    logger.warning(
+        f"Authentication failed: {exc.message}",
+        extra={"request_id": request_id, "error_id": error_id}
+    )
     
     return create_error_response(
         status_code=401,
@@ -180,11 +230,24 @@ async def unhandled_exception_handler(
     request_id = getattr(request.state, "request_id", None)
     tenant = get_current_tenant()
     
+    # Track error
+    error_id = track_error(
+        exc,
+        context={
+            "request_path": str(request.url),
+            "request_method": request.method,
+            "org_id": str(tenant.org_id) if tenant else None,
+            "user_id": str(tenant.user_id) if tenant else None,
+        },
+        severity="critical"
+    )
+    
     # Log full error for debugging
     logger.exception(
         f"Unhandled exception: {type(exc).__name__}",
         extra={
             "request_id": request_id,
+            "error_id": error_id,
             "org_id": str(tenant.org_id) if tenant else None,
             "path": request.url.path,
             "method": request.method,
@@ -197,6 +260,8 @@ async def unhandled_exception_handler(
         status_code=500,
         code="INTERNAL_ERROR",
         message="An unexpected error occurred. Please try again or contact support.",
-        details={"request_id": request_id},  # Only include request ID for support
+        details={"support_reference": error_id},  # Include error ID for support
         request_id=request_id,
+        error_id=error_id,
+        retryable=True
     )
